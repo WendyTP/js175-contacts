@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="../public/stylesheets/application.css"/>
+  </head>
+  <body>
+    <h2>Create a New Contact</h2>
+    <form action="/contacts/new" method="post">
+      <fieldset>
+        <dl>
+          <dt><label for="firstName">First Name:</label></dt>
+          <dd><input type="text" id="firstName" name="firstName" /></dd>
+        </dl>
+        <dl>
+          <dt><label for="lastName">Last Name:</label></dt>
+          <dd><input type="text" id="lastName" name="lastName" /></dd>
+        </dl>
+        <dl>
+          <dt><label for="phoneNumber">Phone Number:</label></dt>
+          <dd><input type="text" id="phoneNumber" name="phoneNumber" placeholder="###-###-####"/></dd>
+        </dl>
+      </fieldset>
+      <input type="submit" value="Save" />
+      <button class="cancel" formaction="/contacts" formmethod="get">Cancel</button>
+    </form>
+  </body>
+</html>
