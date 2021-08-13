@@ -2,8 +2,11 @@ const express = require("express");
 const app = express();
 const morgan = require("morgan");
 const {body, validationResult} = require("express-validator");
+const session = require("express-session");
+const store = require("connect-loki");
+const LokiStore = store(session);
 
-let contactData = [
+const contactData = [
   {
     firstName: "Mike",
     lastName: "Jones",
@@ -42,12 +45,39 @@ let sortContacts = function(contacts) {
   });
 };
 
+const jsonClone = function(object) {
+  return JSON.parse(JSON.stringify(object));
+};
+
 app.set("views", "./views");
 app.set("view engine", "pug");
 
 app.use(express.static("public"));
 app.use(morgan("common"));
 app.use(express.urlencoded({ extended: false }));
+
+app.use(session({
+  cookie: {
+    httpOnly: true,
+    maxAge: 31 * 24 * 60 * 60 * 1000, // 31 days in milliseconds
+    path: "/",
+    secure: false,
+  },
+
+  name: "js175-contacts-manager-session-id",
+  resave: false,
+  saveUninitialized: true,
+  secret: "this is not very secure",
+  store: new LokiStore({}),
+}));
+
+app.use(function(req, res, next) {
+  if (!("contactData" in req.session)) {
+    req.session.contactData = jsonClone(contactData);
+  }
+
+  next();
+});
 
 
 app.get("/", function(req, res) {
@@ -56,7 +86,7 @@ app.get("/", function(req, res) {
 
 app.get("/contacts", function(req, res) {
   res.render("contacts", {
-    contacts: sortContacts(contactData),
+    contacts: sortContacts(req.session.contactData),
   });
 });
 
@@ -96,68 +126,13 @@ app.post("/contacts/new",
 
   // main route callback
   function(req, res, next) {
-    contactData.push({...req.body});
+    req.session.contactData.push({...req.body});
     res.redirect("/contacts");
   }
 
 
-
-  /*
-  function(req, res, next) {
-    res.locals.errorMessages = [];
-    next();
-  },
-
-  function(req, res, next) {
-    if (req.body.firstName.length === 0) {
-      res.locals.errorMessages.push("First name is required");
-    }
-
-    next();
-  },
-
-  function(req, res, next) {
-    if (req.body.lastName.length === 0) {
-      res.locals.errorMessages.push("Last name is required.");
-    }
-
-    next();
-  },
-
-  function(req, res, next) {
-    if (req.body.phoneNumber.length === 0) {
-      res.locals.errorMessages.push("Phone number is required");
-    }
-
-    next();
-  },
-
-  function(req, res, next) {
-    //  trim leading and trailing spaces from all input fields.
-    if (res.locals.errorMessages.length === 0) {
-      Object.keys(req.body).forEach(field => {
-        req.body[field] = req.body[field].trim();
-      });
-    }
-
-    next();
-  },
-
-  function(req, res, next) {
-    validateNameInput(req.body.firstName, res.locals.errorMessages);
-    validateNameInput(req.body.lastName, res.locals.errorMessages);
-
-    next();
-  },
-
-  function(req, res, next) {
-    if (req.body.phoneNumber.length > 0) {
-      validatePhoneInput(req.body.phoneNumber, res.locals.errorMessages);
-    }
-
-    next();
-  },
-
+  /* 
+  validate if contact already exists --- removed for simplying the express-validator works
   function(req, res, next) {
     if (res.locals.errorMessages.length === 0) {
       uniqueContactName(req.body.firstName, req.body.lastName, contactData, res.locals.errorMessages);
@@ -165,25 +140,6 @@ app.post("/contacts/new",
 
     next();
   },
-
-  function(req, res, next) {
-    if (res.locals.errorMessages.length > 0) {
-      res.render("new_contact", {
-        errorMessages: res.locals.errorMessages,
-        firstName: req.body.firstName,
-        lastName: req.body.lastName,
-        phoneNumber: req.body.phoneNumber,
-      });
-    } else {
-      next();
-    }
-  },
-
-  function(req, res, next) {
-    contactData.push({...req.body});
-
-    res.redirect("/contacts");
-  }
   */
 );
 
@@ -191,38 +147,6 @@ app.listen(3000, "localhost", function() {
   console.log("listening to port 3000.");
 });
 
-
-function validateNameInput(name, errorArr) {
-  if (name.length > 0) {
-
-    if (!/^[a-zA-Z]+$/.test(name)) {
-      errorArr.push("name must only contains alphabetic characters");
-    }
-
-    if (name.length > 25) {
-      errorArr.push("Maximum length of characters is 25");
-    }
-
-  }
-}
-
-function validatePhoneInput(phone, errorArr) {
-  if (!/^\d\d\d-\d\d\d-\d\d\d\d$/.test(phone)) {
-    errorArr.push("phone number must match the US-style pattern");
-  }
-}
-
-function uniqueContactName(firstName, lastName, contactsArr, errorArr) {
-  let inputName = (firstName + ' ' + lastName).toLowerCase();
-  
-  let contactNames = contactsArr.map(contact => {
-    return (contact.firstName + ' ' + contact.lastName).toLowerCase();
-  });
-
-  if (contactNames.includes(inputName)) {
-    errorArr.push("Contact already exisits in the database");
-  }
-}
 
 function validateName(name, whichName) {
   return body(name)
@@ -235,3 +159,17 @@ function validateName(name, whichName) {
     .isAlpha()
     .withMessage(`${whichName} name contains invalid characters. It can only contain alphabetics.`)
 }
+
+/*
+function uniqueContactName(firstName, lastName, contactsArr, errorArr) {
+  let inputName = (firstName + ' ' + lastName).toLowerCase();
+  
+  let contactNames = contactsArr.map(contact => {
+    return (contact.firstName + ' ' + contact.lastName).toLowerCase();
+  });
+
+  if (contactNames.includes(inputName)) {
+    errorArr.push("Contact already exisits in the database");
+  }
+}
+*/
