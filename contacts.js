@@ -5,6 +5,7 @@ const {body, validationResult} = require("express-validator");
 const session = require("express-session");
 const store = require("connect-loki");
 const LokiStore = store(session);
+const flash = require("express-flash");
 
 const contactData = [
   {
@@ -79,6 +80,13 @@ app.use(function(req, res, next) {
   next();
 });
 
+app.use(flash());
+
+app.use(function(req, res, next) {
+  res.locals.flash = req.session.flash;
+  delete req.session.flash;
+  next();
+})
 
 app.get("/", function(req, res) {
   res.redirect("/contacts");
@@ -113,8 +121,10 @@ app.post("/contacts/new",
   function(req, res, next) {
     let errors = validationResult(req);
     if (!errors.isEmpty()) {
+      errors.array().forEach(error => req.flash("error", error.msg));
+
       res.render("new_contact", {
-        errorMessages: errors.array().map(error => error.msg),
+        flash: req.flash(),
         firstName: req.body.firstName,
         lastName: req.body.lastName,
         phoneNumber: req.body.phoneNumber,
@@ -127,6 +137,7 @@ app.post("/contacts/new",
   // main route callback
   function(req, res, next) {
     req.session.contactData.push({...req.body});
+    req.flash("success", "New contact added to list!");
     res.redirect("/contacts");
   }
 
